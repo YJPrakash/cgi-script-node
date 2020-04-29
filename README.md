@@ -7,20 +7,6 @@ Installing CGI module for apache server work with nodejs as a cgi script.
 $ npm install cgi-node
 ```
 
-Following way to use the CGI script in apache server 
-```js
-#!/usr/bin/env node
-
-const CgiHttpContext = require('cgi-node');
-
-const {CgiNodeInfo, request} = new CgiHttpContext();
-
-request.readPost(function(){
-  request.parsePost();
-  CgiNodeInfo();
-});
-```
-
 ## with request method
 
 Here onReady is a callback function here we write the response for the request
