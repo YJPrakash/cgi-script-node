@@ -9,14 +9,14 @@ const isValidIP = require('pp-ipcheck');
 function main(){
   let {ip} = request;
 
-  resquest.set({'Content-type': 'text/plain'});
+  response.set({'Content-type': 'text/plain'});
 
 	if (isValidIP(ip)) {
 	  response.write("101\t\t1");
 	} else {
 	  response.write("101\t\t-1");
   } 
-  
+
   response.end();
 }
 
