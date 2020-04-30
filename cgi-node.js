@@ -534,5 +534,6 @@ SOFTWARE.
 
 // Add the required modules.
 let URL = require('url');
+let Queryparser = require('querystring');
 
 module.exports = CgiHttpContext;
