@@ -371,7 +371,8 @@ function CgiHttpRequest()
 		if (self.isMultiPart) CgiParser.multiPart(self);
 
 		// Otherwise use the standard query string parser to the parse the post data.
-		else self.body = self.url.query;
+		// else self.body = self.url.query;
+		else self.body = Queryparser.parse(self.rawBody);
 
 		if (self.isMultiPart && Object.keys(self.url.query).length > 0) {
 			Object.assign(self.body, self.url.query);
