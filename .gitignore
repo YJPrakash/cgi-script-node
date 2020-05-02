@@ -1,2 +1,3 @@
-node_moduels
+package-lock.json
+node_modules
 *.txt
