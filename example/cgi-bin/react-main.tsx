@@ -11,11 +11,12 @@
 
 import * as React from 'react';
 import { renderToString } from 'react-dom/server';
+import { hostname, userInfo } from 'os';
 
-// import CgiHttpContext from 'cgi-node';
+import * as CgiHttpContext from 'cgi-node';
 
 const { Component } = React;
-// const {request, response} = new CgiHttpContext();
+const { request, response } = new CgiHttpContext();
 
 class Greeting extends Component {
   props: {
@@ -29,8 +30,8 @@ class Greeting extends Component {
 
 class HelloMessage extends Component {
   render() {
-    // let name = 'Prakash';
-    let names = ['Prakash', 'Stella'];
+    // let name = hostname();
+    let names = [hostname(), userInfo().username];
     let nameList = names.map((name: string, index: number)=>{
       return (<Greeting name={name} key={index} />);
     });
@@ -38,19 +39,19 @@ class HelloMessage extends Component {
   }
 }
 
-// if (request.method == "GET"){
-//   main();
-// } else if (request.method == "POST") {
-//   request.readPost(main);
-// }
-
-function main () {
-  console.log('Content-type: text/html');
-  console.log('');
-  console.log(renderToString(<HelloMessage />));
-
-  // response.set('Content-Type', 'text/html');
-  // response.write(renderToString(<HelloMessage />));
+if (request.method == "GET"){
+  main();
+} else if (request.method == "POST") {
+  request.readPost(main);
 }
 
-main();
+function main () {
+  // console.log('Content-type: text/html');
+  // console.log('');
+  // console.log(renderToString(<HelloMessage />));
+
+  response.set('Content-Type', 'text/html');
+  response.write(renderToString(<HelloMessage />));
+}
+
+// main();

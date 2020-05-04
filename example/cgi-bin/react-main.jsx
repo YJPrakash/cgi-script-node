@@ -1,4 +1,4 @@
-#!/usr/bin/babel-node --preset=["@babel/preset-react", "@babel/preset-typescript", "@babel/preset-env"]
+#!/usr/bin/babel-node --preset=["@babel/preset-modules", "@babel/preset-react", "@babel/preset-env"]
 
 // #!/usr/bin/node
 // #!/usr/bin/node --experimental-modules=true --input-type=module --jsx=true --harmony
@@ -12,9 +12,12 @@ import React from 'react';
 import {renderToString} from 'react-dom/server';
 
 import CgiHttpContext from 'cgi-node';
+// import os from 'os';
+import { hostname, userInfo } from 'os';
 
 const {Component} = React;
 const {request, response} = new CgiHttpContext();
+// const { hostname, userInfo } = os;
 
 class Greeting extends Component {
   render() {
@@ -24,8 +27,8 @@ class Greeting extends Component {
 
 class HelloMessage extends Component {
   render() {
-    // let name = 'Prakash';
-    let names = ['Prakash', 'Stella'];
+    // let name = hostname();
+    let names = [hostname(), userInfo().username];
     let nameList = names.map((name, index)=>{
       return (<Greeting name={name} key={index} />);
     });

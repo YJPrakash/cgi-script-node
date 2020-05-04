@@ -1,8 +1,9 @@
 {
   "compilerOptions": {
+    "types": ["node", "react"],
     "jsx": "react",
     "moduleResolution": "node",
-    "typeRoots": ["@types"],
+    "typeRoots": ["./node_modules/@types"],
     "allowSyntheticDefaultImports": true
   }
 }
