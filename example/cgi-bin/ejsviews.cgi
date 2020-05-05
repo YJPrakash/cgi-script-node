@@ -28,7 +28,7 @@ function main() {
   });*/
 
   // This method specify the template file name CGI script handles the rendering operation of template.
-  response.render(`about`, {title: 'About', body: '<h1>Welcome to EJS</h1>'});
+  response.render(`about`, {title: 'About', body: 'Welcome to EJS'});
   
   response.end();
 

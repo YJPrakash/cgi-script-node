@@ -212,10 +212,9 @@ function CgiHttpResponse() {
 
     try {
       self.set('Content-type', 'text/html');
-      self.write(ejs.render(`<%- include('${viewsPage}'); %>`, params, options));
+      self.write(ejs.render(`<%- include('/${viewsPage}'); %>`, params, options));
     } catch (e) {
       self.set('Content-type', 'text/plain');
-      self.write(server['document-root']);
       self.write(e.message);
     }
   };
