@@ -1,4 +1,4 @@
-#!/usr/bin/babel-node --preset=["@babel/preset-modules", "@babel/preset-react", "@babel/preset-env"]
+#!/usr/bin/babel-node
 
 // #!/usr/bin/node
 // #!/usr/bin/node --experimental-modules=true --input-type=module --jsx=true --harmony

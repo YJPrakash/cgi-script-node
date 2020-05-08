@@ -203,16 +203,31 @@ function CgiHttpResponse() {
       viewsRoot = "";
     CgiParser.enviromentVarialbesAndHeaders(process.env, server, {});
     viewsRoot = path.join(server['document-root'], 'views');
+    let viewsExt = 'ejs';
     if (options === undefined) {
       options = {
         async: false,
         root: viewsRoot
       };
+    } else if(Object.keys(options).length > 0) {
+      viewsExt = options.views || 'ejs';
     }
-
     try {
-      self.set('Content-type', 'text/html');
-      self.write(ejs.render(`<%- include('/${viewsPage}'); %>`, params, options));
+      if(viewsExt != 'ejs'){
+        // self.renderFile("/"+viewsPage + "." + viewsExt, params, options, function (err, htmlStr) {
+        self.renderFile(path.join(viewsRoot, viewsPage) + "." + viewsExt, params, options, function (err, htmlStr) {
+          if(err){  
+            throw err;
+          } else {
+            self.set('Content-type', 'text/html');
+            self.write(htmlStr);
+          }
+        });
+      } else {
+        self.set('Content-type', 'text/html');
+        self.write(ejs.render(`<%- include('/${viewsPage}'); %>`, params, options));
+      }
+    
     } catch (e) {
       self.set('Content-type', 'text/plain');
       self.write(e.message);
@@ -391,7 +406,7 @@ function CgiHttpRequest() {
     // else self.body = self.url.query;
     else self.body = Queryparser.parse(self.rawBody);
 
-    if (self.isMultiPart && Object.keys(self.url.query).length > 0) {
+    if (Object.keys(self.url.query).length > 0) {
       Object.assign(self.body, self.url.query);
     }
   };
