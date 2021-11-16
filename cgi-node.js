@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+
 /*
 The MIT License (MIT)
 
@@ -35,8 +36,19 @@ function CgiHttpContext(onFinished) {
   // self.stdout = process.stdout;
   // self.stderr = process.stderr;
   self.on = process.on;
+  /*
+   This array contains all the scripts that have been included within the session.
+   The script structure is: {id: <integer>, path: <string>, code: <string>, content: [<string>]};
+  */
+  this.__scripts = [];
 
   /*
+   This is the VM context/sandbox used for every included script.
+  */
+  this.__vmContext = null;
+
+  /*
+
    This object is created before the requested script is executed. It represents the HTTP request
    and contains all the request information. This includes the headers, URL, query string, post data
    and server information.
@@ -65,6 +77,46 @@ function CgiHttpContext(onFinished) {
   */
   this.process = process;
   this.require = require;
+
+  this.runScript = function (filePath, options) {
+    // If options is not defined then assume UTF8 as including.
+    if (options === undefined) options = {
+      encoding: 'utf8'
+    };
+
+    // // Resolve the script path.
+    // const path = self.mapPath(filePath);
+
+    // Get the script file content.
+    // const content = FS.readFileSync(path, options);
+    let content = `require("${filePath}").getResponse();`;
+
+    // If the file extension is not '.js' then parse out the different code and content sections.
+    // TODO: use the configuration object to check if it is a script file or not.
+    if (path.extname(filePath) != '.node') {
+      script = CgiParser.script(self.__scripts.length, filePath, content.toString());
+    }
+    // else if (Path.extname(filePath) != '.js') script = CgiParser.script(self.__scripts.length, path, content.toString());
+
+    // Otherwise just create a new script object
+    else script = {
+      id: self.__scripts.length,
+      path: filePath,
+      script: null,
+      code: content,
+      content: []
+    };
+
+    // Push the script onto the global script array.
+    self.__scripts.push(script);
+
+    // If the VM context has not yet been created then create it.
+    if (self.__vmContext === null) self.__vmContext = VM.createContext(self);
+
+    // Execute the script within the context.
+    VM.runInContext(script.code, self.__vmContext, script.path);
+  };
+
 }
 
 /*
@@ -466,7 +518,7 @@ let CgiParser = {
     startIndex = endIndex + 1;
     let postDataChunks = [];
     for (let j = 0; j < dataLength; j++) {
-      postDataChunks.push(new Buffer(postData[j]));
+      postDataChunks.push(Buffer.from(postData[j]));
     }
 
     // Split the multi parts into single parts.
@@ -493,8 +545,10 @@ let CgiParser = {
           obj['name'] = key.split('"; filename')[0].trim();
           obj['filename'] = key.split('; filename="')[1].trim();
           obj['type'] = value.split(':')[1].trim();
-          obj['data'] = files[1].trim();
+          // obj['data'] = files[1].trim();
+          obj['data'] = Buffer.from(files[1].trim()).toString('base64');
           attachments.push(obj);
+
         } else {
           request.body[key] = value;
         }
@@ -545,11 +599,151 @@ SOFTWARE.
 @Author: Jeyaprakash
 @Email: anthony.jeyaprakash@gmail.com
 */
-
 // Add the required modules.
 const URL = require('url');
 const Queryparser = require('querystring');
 const ejs = require('ejs');
 const path = require('path');
+const VM = require('vm');
+const {
+  createWriteStream
+} = require('fs');
+const log = createWriteStream(path.join(__dirname, 'log.txt'), {
+  flags: 'a'
+});
+const CGI_ENV = {
+  ...process.env
+}
 
-module.exports = CgiHttpContext;
+/*
+ The first thing we are going to do is set up a way to catch any global 
+ exceptions and send them to the client. This is extremely helpful when developing code.
+*/
+
+process.on('uncaughtException', function (error) {
+  // Build the HTML error.
+  let htmlError = '<br/><div style="color:red"><b>EXCEPTION</b>: ' + error.message + '<i><pre>' + error.stack + '</pre></i></div></br>';
+
+  // If the CGI context has been created then use the response to send the error
+  if (cgiNodeContext !== null) cgiNodeContext.response.write(htmlError);
+
+  // Otherwise send an HTTP header followed by the error.
+  else process.stdout.write("Content-type: text/html; charset=iso-8859-1\n\n" + htmlError);
+});
+
+/*
+ When the process exists make sure to save any session data back to the file.
+*/
+process.on('exit', function (code) {
+  // if(code) log.write('error: '+"");
+});
+
+if (module.parent != null) {
+  module.exports = CgiHttpContext;
+} else {
+
+  const {
+    execFile,
+    spawn,
+    exec
+  } = require('child_process');
+
+  cgiNodeContext = new CgiHttpContext();
+  // process.env.CONTENT_TYPE = "application/x-www-form-urlencoded";
+  // log.write("QUERY_STRING=> " + process.env.QUERY_STRING + "\r\n");
+  // log.write("CGI_ENV=> " + JSON.stringify(process.env, null, 4) + "\r\n");
+
+  // Create a callback function that will get called when everything is loaded and ready to go. This will execute the script.
+  const onReady = async function () {
+    cgiNodeContext.request.parsePost();
+    // cgiNodeContext.include(process.env.PATH_TRANSLATED);
+    if (process.env.PATH_TRANSLATED.indexOf(".ejs") != -1) {
+      const body = {
+        ...cgiNodeContext.request.body,
+        ...cgiNodeContext.request.query
+      };
+      let viewsName = process.env.PATH_TRANSLATED;
+      viewsName = viewsName.split(".ejs")[0];
+      viewsName = viewsName.split("/");
+      viewsName = viewsName[viewsName.length - 1];
+      cgiNodeContext.response.render(`${viewsName}`, body);
+    } else if (process.env.PATH_TRANSLATED.indexOf('.node') != -1) {
+      // CGI_ENV.QUERY_STRING = Queryparser.stringify({
+      //     ...cgiNodeContext.request.query,
+      //     ...cgiNodeContext.request.body
+      // });
+      // CGI_ENV.REQUEST_URI += "?" + CGI_ENV.QUERY_STRING;
+      // log.write("CGI_ENV=> " + JSON.stringify(CGI_ENV, null, 4));
+      // log.write("\nisMultiPart=> " + cgiNodeContext.request.isMultiPart);
+      // log.write("\nFiles=> " + JSON.stringify(cgiNodeContext.request.files, null, 4));
+      // log.write("\nquerystring=> " + Queryparser.stringify({
+      //     ...cgiNodeContext.request.query,
+      //     ...cgiNodeContext.request.body
+      // }));
+      // let cgi_exec = process.env.PATH_TRANSLATED;
+      // cgi_exec = cgi_exec.replace("")
+      // if (cgiNodeContext.request.files.length > 0) {
+      //     cgiNodeContext.request.files.forEach(file=>{
+      //         // if(file.filename) require('fs').writeSync(`${path.resolve(__dirname, file.filename)}`, Buffer.from(files.data, 'base64').toString('binary'));
+      //         console.error(file.filename)
+      //     });
+      // }
+      log.write("\nreqBody=> " + cgiNodeContext.request.rawBody);
+
+
+      const {
+        stdin,
+        stdout,
+        stderr
+      } = await exec(`node -p "require('${path.resolve(process.env.PATH_TRANSLATED)}').getResponse();"`, {
+        env: CGI_ENV
+      });
+      let responseData = '';
+      stdout.on('data', (chunk) => {
+        responseData += chunk;
+      });
+      stdout.on('end', () => {
+        let resData = responseData.split("\r\n\r\n");
+        let contentType = resData.shift();
+        if (contentType) {
+          let headerName = (contentType?.split(":")[0] || "").toLocaleLowerCase().trim();
+          let headerValue = (contentType?.split(":")[1] || "").toLocaleLowerCase().trim();
+          resData = resData[0];
+
+          if (headerName == "content-type") {
+            cgiNodeContext.response.set({
+              "Content-Type": headerValue
+            });
+          }
+        }
+        if (resData) {
+          resData = resData.trim()
+          cgiNodeContext.response.write(resData);
+          cgiNodeContext.response.end();
+        } else {
+          cgiNodeContext.response.write("data");
+          cgiNodeContext.response.end();
+        }
+      });
+      // stdin.setDefaultEncoding('binary');
+      stdin.write(cgiNodeContext.request.rawBody);
+      stdin.end();
+
+      // cgiNodeContext.response.pipe(stdout.pipe);
+      // cgiNodeContext.response.write(require(process.env.PATH_TRANSLATED).getResponse());
+
+      // cgiNodeContext.response.write(cgiNodeContext.require(process.env.PATH_TRANSLATED).getResponse());
+      // cgiNodeContext.response.end();
+    }
+  };
+
+
+  // TODO: remove this when the POST parser is done.
+  // cgiNodeContext.request.method = 'GET';
+
+  // If the HTTP method is a 'POST' then read the post data. Otherwise process is ready.
+  if (cgiNodeContext.request.method != 'POST') onReady();
+  else cgiNodeContext.request.readPost(onReady);
+
+  // cgiNodeContext.request.readPost(onReady);
+}
