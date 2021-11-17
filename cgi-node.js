@@ -545,8 +545,9 @@ let CgiParser = {
           obj['name'] = key.split('"; filename')[0].trim();
           obj['filename'] = key.split('; filename="')[1].trim();
           obj['type'] = value.split(':')[1].trim();
-          // obj['data'] = files[1].trim();
-          obj['data'] = Buffer.from(files[1].trim()).toString('base64');
+          obj['data'] = files[1].trim();
+          obj['base64'] = Buffer.from(files[1].trim()).toString('base64');
+          obj['base64url'] = Buffer.from(files[1].trim()).toString('base64url');
           attachments.push(obj);
 
         } else {
@@ -685,9 +686,12 @@ if (module.parent != null) {
       // if (cgiNodeContext.request.files.length > 0) {
       //     cgiNodeContext.request.files.forEach(file=>{
       //         // if(file.filename) require('fs').writeSync(`${path.resolve(__dirname, file.filename)}`, Buffer.from(files.data, 'base64').toString('binary'));
-      //         console.error(file.filename)
+      //         log.write("\r\n" + file.filename);
+      //         log.write("\r\n => " + file.base64);
+      //         log.write("\r\n => " + file.base64url);
       //     });
       // }
+      log.write("\nurl=> " + JSON.stringify(cgiNodeContext.request.url, null, 4));
       log.write("\nreqBody=> " + cgiNodeContext.request.rawBody);
 
 
@@ -695,9 +699,7 @@ if (module.parent != null) {
         stdin,
         stdout,
         stderr
-      } = await exec(`node -p "require('${path.resolve(process.env.PATH_TRANSLATED)}').getResponse();"`, {
-        env: CGI_ENV
-      });
+      } = await exec(`node -p "require('${path.resolve(process.env.PATH_TRANSLATED)}').getResponse();"`);
       let responseData = '';
       stdout.on('data', (chunk) => {
         responseData += chunk;
@@ -717,15 +719,16 @@ if (module.parent != null) {
           }
         }
         if (resData) {
-          resData = resData.trim()
+          resData = resData.trim();
+          // log.write("\nresData=> "+resData)
           cgiNodeContext.response.write(resData);
           cgiNodeContext.response.end();
         } else {
-          cgiNodeContext.response.write("data");
+          cgiNodeContext.response.write("404\t\tUnabletoprocess");
           cgiNodeContext.response.end();
         }
       });
-      // stdin.setDefaultEncoding('binary');
+      // stdin.setDefaultEncoding('utf-8');
       stdin.write(cgiNodeContext.request.rawBody);
       stdin.end();
 
