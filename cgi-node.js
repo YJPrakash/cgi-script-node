@@ -694,12 +694,21 @@ if (module.parent != null) {
       log.write("\nurl=> " + JSON.stringify(cgiNodeContext.request.url, null, 4));
       log.write("\nreqBody=> " + cgiNodeContext.request.rawBody);
 
-
+      let cgiexec = `node -p "require('${path.resolve(process.env.PATH_TRANSLATED)}').getResponse();"`;
+      let exclude = [
+        '/cgi-bin/upload.node',
+        '/cgi-bin/fUpload.node',
+        '/cgi-bin/fDownload.node',
+        '/cgi-bin/crtprifac.node'
+      ]
+      if (exclude.includes(cgiNodeContext.request.url.pathname)) {
+        cgiexec = process.env.PATH_TRANSLATED;
+      }
       const {
         stdin,
         stdout,
         stderr
-      } = await exec(`node -p "require('${path.resolve(process.env.PATH_TRANSLATED)}').getResponse();"`);
+      } = await exec(cgiexec);
       let responseData = '';
       stdout.on('data', (chunk) => {
         responseData += chunk;
@@ -718,9 +727,9 @@ if (module.parent != null) {
             });
           }
         }
-        if (resData) {
+        if (resData != "") {
+          log.write("\nresData=> " + resData)
           resData = resData.trim();
-          // log.write("\nresData=> "+resData)
           cgiNodeContext.response.write(resData);
           cgiNodeContext.response.end();
         } else {
