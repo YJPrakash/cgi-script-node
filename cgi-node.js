@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
 // process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+const CGI_ENV = {
+  ...process.env
+};
+process.env.REMOTE_ADDR = (process.env.HTTP_X_FORWARDED_FOR !== undefined)? process.env.HTTP_X_FORWARDED_FOR : process.env.REMOTE_ADDR; 
+
 /*
 The MIT License (MIT)
 
@@ -612,9 +617,6 @@ const {
 const log = createWriteStream(path.join(__dirname, 'log.txt'), {
   flags: 'a'
 });
-const CGI_ENV = {
-  ...process.env
-}
 
 /*
  The first thing we are going to do is set up a way to catch any global 
@@ -691,7 +693,8 @@ if (module.parent != null) {
       //         log.write("\r\n => " + file.base64url);
       //     });
       // }
-      log.write("\nurl=> " + cgiNodeContext.request.url.path);
+      log.write("\nenv=>"+JSON.stringify(process.env, null, 4));
+      log.write("\nip=>"+cgiNodeContext.request.ip+", url=> " + cgiNodeContext.request.url.path);
       // log.write("\nreqBody=> " + cgiNodeContext.request.rawBody);
 
       let cgiexec = `node -p "require('${path.resolve(process.env.PATH_TRANSLATED)}').getResponse();"`;
