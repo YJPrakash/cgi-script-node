@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-
+// process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 /*
 The MIT License (MIT)
 
@@ -691,8 +691,8 @@ if (module.parent != null) {
       //         log.write("\r\n => " + file.base64url);
       //     });
       // }
-      log.write("\nurl=> " + JSON.stringify(cgiNodeContext.request.url, null, 4));
-      log.write("\nreqBody=> " + cgiNodeContext.request.rawBody);
+      log.write("\nurl=> " + cgiNodeContext.request.url.path);
+      // log.write("\nreqBody=> " + cgiNodeContext.request.rawBody);
 
       let cgiexec = `node -p "require('${path.resolve(process.env.PATH_TRANSLATED)}').getResponse();"`;
       let exclude = [
@@ -719,6 +719,7 @@ if (module.parent != null) {
         if (contentType) {
           let headerName = (contentType?.split(":")[0] || "").toLocaleLowerCase().trim();
           let headerValue = (contentType?.split(":")[1] || "").toLocaleLowerCase().trim();
+          // log.write("\nresData=> " + resData.length)
           resData = resData[0];
 
           if (headerName == "content-type") {
@@ -726,19 +727,23 @@ if (module.parent != null) {
               "Content-Type": headerValue
             });
           }
-        }
-        if (resData != "") {
-          log.write("\nresData=> " + resData)
-          resData = resData.trim();
-          cgiNodeContext.response.write(resData);
-          cgiNodeContext.response.end();
-        } else {
-          cgiNodeContext.response.write("404\t\tUnabletoprocess");
-          cgiNodeContext.response.end();
+          if (resData != "") {
+            resData = Buffer.from(resData.trim(), 'ascii');
+            // resData = resData.trim();
+            // log.write("\nresData=> " + resData);
+            // if(headerValue.indexOf('json')!=-1) cgiNodeContext.response.json(JSON.parse(resData));
+            // else{
+              cgiNodeContext.response.write(resData);
+              // cgiNodeContext.response.end();
+            // }
+          } else {
+            cgiNodeContext.response.write("404\t\tUnabletoprocess");
+            // cgiNodeContext.response.end();
+          }
         }
       });
       // stdin.setDefaultEncoding('utf-8');
-      stdin.write(cgiNodeContext.request.rawBody);
+      stdin.write(Buffer.from(cgiNodeContext.request.rawBody,'binary').toString('binary'));
       stdin.end();
 
       // cgiNodeContext.response.pipe(stdout.pipe);
