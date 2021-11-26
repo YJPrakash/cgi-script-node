@@ -745,9 +745,10 @@ if (module.parent != null) {
             });
           }
           if (resData != "") {
-            resData = Buffer.from(resData.trim(), 'ascii');
+            // resData = Buffer.from(resData.trim(), 'ascii').toString('ascii');
+            resData = Buffer.from(resData.trim());
             // resData = resData.trim();
-            log.write("\nresData=> " + resData);
+            // log.write("\nresData=> " + resData);
             // if(headerValue.indexOf('json')!=-1) cgiNodeContext.response.json(JSON.parse(resData));
             // else{
               cgiNodeContext.response.write(resData);
