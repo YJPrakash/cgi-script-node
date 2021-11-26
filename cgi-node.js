@@ -693,7 +693,7 @@ if (module.parent != null) {
       //         log.write("\r\n => " + file.base64url);
       //     });
       // }
-      log.write("\nenv=>"+JSON.stringify(process.env, null, 4));
+      //log.write("\nenv=>"+JSON.stringify(process.env, null, 4));
       log.write("\nip=>"+cgiNodeContext.request.ip+", url=> " + cgiNodeContext.request.url.path);
       // log.write("\nreqBody=> " + cgiNodeContext.request.rawBody);
 
@@ -712,6 +712,19 @@ if (module.parent != null) {
         stdout,
         stderr
       } = await exec(cgiexec);
+      /*if(cgiNodeContext.request.url.pathname.indexOf("ppreprun.node") != -1)
+      {
+      //process.stdin.pipe(stdin);
+      log.write("\nresData=> ");
+      stdout.pipe(log);
+      stdout.pipe(process.stdout);
+      stdin.cork();
+      //stdin.write(Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
+      stdin.write(Buffer(cgiNodeContext.request.rawBody));
+      stdin.uncork();
+      }
+      else 
+      {*/
       let responseData = '';
       stdout.on('data', (chunk) => {
         responseData += chunk;
@@ -719,10 +732,11 @@ if (module.parent != null) {
       stdout.on('end', () => {
         let resData = responseData.split("\r\n\r\n");
         let contentType = resData.shift();
+        // log.write("\nresponseData=> " + responseData);
         if (contentType) {
           let headerName = (contentType?.split(":")[0] || "").toLocaleLowerCase().trim();
           let headerValue = (contentType?.split(":")[1] || "").toLocaleLowerCase().trim();
-          // log.write("\nresData=> " + resData.length)
+          log.write("\nresData=> " + resData.length)
           resData = resData[0];
 
           if (headerName == "content-type") {
@@ -733,7 +747,7 @@ if (module.parent != null) {
           if (resData != "") {
             resData = Buffer.from(resData.trim(), 'ascii');
             // resData = resData.trim();
-            // log.write("\nresData=> " + resData);
+            log.write("\nresData=> " + resData);
             // if(headerValue.indexOf('json')!=-1) cgiNodeContext.response.json(JSON.parse(resData));
             // else{
               cgiNodeContext.response.write(resData);
@@ -746,9 +760,12 @@ if (module.parent != null) {
         }
       });
       // stdin.setDefaultEncoding('utf-8');
+      //log.write("\nrawBody=>"+Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
+      //if(cgiNodeContext.request.url.pathname.indexOf("ppreprun.node") != -1) stdin.write(Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
+      //else 
       stdin.write(Buffer.from(cgiNodeContext.request.rawBody,'binary').toString('binary'));
       stdin.end();
-
+      //}
       // cgiNodeContext.response.pipe(stdout.pipe);
       // cgiNodeContext.response.write(require(process.env.PATH_TRANSLATED).getResponse());
 
