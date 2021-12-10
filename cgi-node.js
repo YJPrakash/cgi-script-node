@@ -4,7 +4,7 @@
 const CGI_ENV = {
   ...process.env
 };
-process.env.REMOTE_ADDR = (process.env.HTTP_X_FORWARDED_FOR !== undefined)? process.env.HTTP_X_FORWARDED_FOR : process.env.REMOTE_ADDR; 
+process.env.REMOTE_ADDR = (process.env.HTTP_X_FORWARDED_FOR !== undefined) ? process.env.HTTP_X_FORWARDED_FOR : process.env.REMOTE_ADDR;
 
 /*
 The MIT License (MIT)
@@ -611,8 +611,12 @@ const Queryparser = require('querystring');
 const ejs = require('ejs');
 const path = require('path');
 const VM = require('vm');
+const Prince = require('prince');
+const pdftk = require('node-pdftk');
+const util = require('util');
 const {
-  createWriteStream
+  createWriteStream,
+  createReadStream
 } = require('fs');
 const log = createWriteStream(path.join(__dirname, 'log.txt'), {
   flags: 'a'
@@ -694,8 +698,8 @@ if (module.parent != null) {
       //     });
       // }
       //log.write("\nenv=>"+JSON.stringify(process.env, null, 4));
-      log.write("\nip=>"+cgiNodeContext.request.ip+", url=> " + cgiNodeContext.request.url.path);
-      // log.write("\nreqBody=> " + cgiNodeContext.request.rawBody);
+      log.write("\nip=>" + cgiNodeContext.request.ip + ", url=> " + cgiNodeContext.request.url.path);
+      log.write("\nreqBody=> " + cgiNodeContext.request.rawBody);
 
       let cgiexec = `node -p "require('${path.resolve(process.env.PATH_TRANSLATED)}').getResponse();"`;
       let exclude = [
@@ -732,7 +736,7 @@ if (module.parent != null) {
       stdout.on('end', () => {
         let resData = responseData.split("\r\n\r\n");
         let contentType = resData.shift();
-        // log.write("\nresponseData=> " + responseData);
+        log.write("\nresponseData=> " + responseData);
         if (contentType) {
           let headerName = (contentType?.split(":")[0] || "").toLocaleLowerCase().trim();
           let headerValue = (contentType?.split(":")[1] || "").toLocaleLowerCase().trim();
@@ -746,13 +750,48 @@ if (module.parent != null) {
           }
           if (resData != "") {
             // resData = Buffer.from(resData.trim(), 'ascii').toString('ascii');
-            resData = Buffer.from(resData.trim());
+            if (process.env.PATH_TRANSLATED.indexOf("resetPwd.node") != -1) {
+                let res = resData.split("\t")[1].trim();
+                res = res.trim();
+                let html_name = "/var/prism/www/report/rep_html/" + res + ".html";
+                let pdf_sample = "/var/prism/www/report/rep_html/" + res + ".pdf";
+                let pdf_file = "/var/prism/www/editor/usrpwdPdf/" + res + ".pdf";
+                
+                Prince()
+                    .inputs(html_name)
+                    .output(pdf_sample)
+                    .execute()
+                    .then(() => {
+                        // response.write("OK: done");
+                        log.write(pdf_sample + ' Created...\n');
+                        pdftk
+                            .input(pdf_sample)
+                            .cat("2-end")
+                            .output(pdf_file)
+                            .then(buffer => {
+                                // response.write("concatenated successfully.");
+                                await unlink(pdf_sample);
+                                // await createReadStream(html_name).pipe(createWriteStream(BACKUP_FILE));
+                                await unlink(html_name);
+                                log.write(pdf_file + ' Created...\n');
+                                // await response.write('Created');
+                            }).catch(err => {
+                                // response.write("ERROR: "+ util.inspect(err));
+                                log.write("ERROR: " + util.inspect(err));
+                            });
+                    }).catch(error => {
+                        // response.write("ERROR: "+ util.inspect(error));
+                        log.write("ERROR: " + util.inspect(error));
+                    });
+            }
+
             // resData = resData.trim();
             // log.write("\nresData=> " + resData);
             // if(headerValue.indexOf('json')!=-1) cgiNodeContext.response.json(JSON.parse(resData));
             // else{
-              cgiNodeContext.response.write(resData);
-              // cgiNodeContext.response.end();
+            resData = Buffer.from(resData.trim());
+            cgiNodeContext.response.write(resData);
+            // cgiNodeContext.response.end();
             // }
           } else {
             cgiNodeContext.response.write("404\t\tUnabletoprocess");
@@ -760,11 +799,19 @@ if (module.parent != null) {
           }
         }
       });
+      let errData = '';
+      stderr.on('data', (chunk) => {
+        errData += chunk;
+      });
+      stderr.on('end', () => {
+        log.write('\nstderr: ' + errData);
+      });
       // stdin.setDefaultEncoding('utf-8');
       //log.write("\nrawBody=>"+Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
-      //if(cgiNodeContext.request.url.pathname.indexOf("ppreprun.node") != -1) stdin.write(Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
-      //else 
-      stdin.write(Buffer.from(cgiNodeContext.request.rawBody,'binary').toString('binary'));
+      // if(cgiNodeContext.request.url.pathname.indexOf("ppreprun.node") != -1) stdin.write(Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
+      // if(cgiNodeContext.request.url.pathname.indexOf("ppreprun.node") != -1) stdin.write(Buffer.from(cgiNodeContext.request.rawBody, 'ascii').toString('ascii'));
+      // else 
+      stdin.write(Buffer.from(cgiNodeContext.request.rawBody, 'binary').toString('binary'));
       stdin.end();
       //}
       // cgiNodeContext.response.pipe(stdout.pipe);

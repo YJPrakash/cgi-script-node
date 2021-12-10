@@ -1,7 +1,9 @@
 {
   "author": "Jeyaprakash",
   "dependencies": {
-    "ejs": "^3.1.2"
+    "ejs": "^3.1.2",
+    "node-pdftk": "^2.1.3",
+    "prince": "^1.9.5"
   },
   "bin": {
     "cgiNode": "cgi-node.js"
@@ -14,5 +16,5 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "version": "1.0.5"
+  "version": "1.0.6"
 }
