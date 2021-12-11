@@ -616,7 +616,8 @@ const pdftk = require('node-pdftk');
 const util = require('util');
 const {
   createWriteStream,
-  createReadStream
+  createReadStream,
+  unlink
 } = require('fs');
 const log = createWriteStream(path.join(__dirname, 'log.txt'), {
   flags: 'a'
@@ -675,6 +676,10 @@ if (module.parent != null) {
       viewsName = viewsName[viewsName.length - 1];
       cgiNodeContext.response.render(`${viewsName}`, body);
     } else if (process.env.PATH_TRANSLATED.indexOf('.node') != -1) {
+      const body = {
+        ...cgiNodeContext.request.body,
+        ...cgiNodeContext.request.query
+      };
       // CGI_ENV.QUERY_STRING = Queryparser.stringify({
       //     ...cgiNodeContext.request.query,
       //     ...cgiNodeContext.request.body
@@ -750,39 +755,41 @@ if (module.parent != null) {
           }
           if (resData != "") {
             // resData = Buffer.from(resData.trim(), 'ascii').toString('ascii');
-            if (process.env.PATH_TRANSLATED.indexOf("resetPwd.node") != -1) {
-                let res = resData.split("\t")[1].trim();
-                res = res.trim();
-                let html_name = "/var/prism/www/report/rep_html/" + res + ".html";
-                let pdf_sample = "/var/prism/www/report/rep_html/" + res + ".pdf";
-                let pdf_file = "/var/prism/www/editor/usrpwdPdf/" + res + ".pdf";
-                
-                Prince()
-                    .inputs(html_name)
-                    .output(pdf_sample)
-                    .execute()
-                    .then(() => {
-                        // response.write("OK: done");
-                        log.write(pdf_sample + ' Created...\n');
-                        pdftk
-                            .input(pdf_sample)
-                            .cat("2-end")
-                            .output(pdf_file)
-                            .then(buffer => {
-                                // response.write("concatenated successfully.");
-                                await unlink(pdf_sample);
-                                // await createReadStream(html_name).pipe(createWriteStream(BACKUP_FILE));
-                                await unlink(html_name);
-                                log.write(pdf_file + ' Created...\n');
-                                // await response.write('Created');
-                            }).catch(err => {
-                                // response.write("ERROR: "+ util.inspect(err));
-                                log.write("ERROR: " + util.inspect(err));
-                            });
-                    }).catch(error => {
-                        // response.write("ERROR: "+ util.inspect(error));
-                        log.write("ERROR: " + util.inspect(error));
-                    });
+            if (process.env.PATH_TRANSLATED.indexOf("resetPwd.node") != -1 || (process.env.PATH_TRANSLATED.indexOf("process.node") != -1 && body.rel == 'cusr')) {
+                let res = resData.indexOf("\t") != -1 ? resData.split("\t")[1].trim() : JSON.parse(resData).pdfName;
+                // res = res.trim();
+                if(res == ""){}else{
+                  let html_name = "/var/prism/www/report/rep_html/" + res + ".html";
+                  let pdf_sample = "/var/prism/www/report/rep_html/" + res + ".pdf";
+                  let pdf_file = "/var/prism/www/editor/usrpwdPdf/" + res + ".pdf";
+                  
+                  Prince()
+                      .inputs(html_name)
+                      .output(pdf_sample)
+                      .execute()
+                      .then(() => {
+                          // response.write("OK: done");
+                          log.write(pdf_sample + ' Created...\n');
+                          pdftk
+                              .input(pdf_sample)
+                              .cat("2-end")
+                              .output(pdf_file)
+                              .then(async (buffer) => {
+                                  // response.write("concatenated successfully.");
+                                  await unlink(pdf_sample);
+                                  // await createReadStream(html_name).pipe(createWriteStream(BACKUP_FILE));
+                                  await unlink(html_name);
+                                  log.write(pdf_file + ' Created...\n');
+                                  // await response.write('Created');
+                              }).catch(err => {
+                                  // response.write("ERROR: "+ util.inspect(err));
+                                  log.write("ERROR: " + util.inspect(err));
+                              });
+                      }).catch(error => {
+                          // response.write("ERROR: "+ util.inspect(error));
+                          log.write("ERROR: " + util.inspect(error));
+                      });
+                }
             }
 
             // resData = resData.trim();
