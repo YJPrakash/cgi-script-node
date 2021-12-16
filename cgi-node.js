@@ -703,11 +703,12 @@ if (module.parent != null) {
       //     });
       // }
       //log.write("\nenv=>"+JSON.stringify(process.env, null, 4));
-      log.write("\nip=>" + cgiNodeContext.request.ip + ", url=> " + cgiNodeContext.request.url.path);
-      log.write("\nreqBody=> " + cgiNodeContext.request.rawBody);
+      // log.write("\nip=>" + cgiNodeContext.request.ip + ", url=> " + cgiNodeContext.request.url.path);
+      // log.write("\nreqBody=> " + cgiNodeContext.request.rawBody);
 
       let cgiexec = `node -p "require('${path.resolve(process.env.PATH_TRANSLATED)}').getResponse();"`;
       let exclude = [
+        '/cgi-bin/ipset.node',
         '/cgi-bin/upload.node',
         '/cgi-bin/fUpload.node',
         '/cgi-bin/fDownload.node',
@@ -741,11 +742,11 @@ if (module.parent != null) {
       stdout.on('end', () => {
         let resData = responseData.split("\r\n\r\n");
         let contentType = resData.shift();
-        log.write("\nresponseData=> " + responseData);
+        // log.write("\nresponseData=> " + responseData);
         if (contentType) {
           let headerName = (contentType?.split(":")[0] || "").toLocaleLowerCase().trim();
           let headerValue = (contentType?.split(":")[1] || "").toLocaleLowerCase().trim();
-          log.write("\nresData=> " + resData.length)
+          // log.write("\nresData=> " + resData.length)
           resData = resData[0];
 
           if (headerName == "content-type") {
@@ -769,7 +770,7 @@ if (module.parent != null) {
                       .execute()
                       .then(() => {
                           // response.write("OK: done");
-                          log.write(pdf_sample + ' Created...\n');
+                          // log.write(pdf_sample + ' Created...\n');
                           pdftk
                               .input(pdf_sample)
                               .cat("2-end")
@@ -779,15 +780,15 @@ if (module.parent != null) {
                                   await unlink(pdf_sample);
                                   // await createReadStream(html_name).pipe(createWriteStream(BACKUP_FILE));
                                   await unlink(html_name);
-                                  log.write(pdf_file + ' Created...\n');
+                                  // log.write(pdf_file + ' Created...\n');
                                   // await response.write('Created');
                               }).catch(err => {
                                   // response.write("ERROR: "+ util.inspect(err));
-                                  log.write("ERROR: " + util.inspect(err));
+                                  // log.write("ERROR: " + util.inspect(err));
                               });
                       }).catch(error => {
                           // response.write("ERROR: "+ util.inspect(error));
-                          log.write("ERROR: " + util.inspect(error));
+                          // log.write("ERROR: " + util.inspect(error));
                       });
                 }
             }
@@ -811,7 +812,7 @@ if (module.parent != null) {
         errData += chunk;
       });
       stderr.on('end', () => {
-        log.write('\nstderr: ' + errData);
+        // log.write('\nstderr: ' + errData);
       });
       // stdin.setDefaultEncoding('utf-8');
       //log.write("\nrawBody=>"+Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
