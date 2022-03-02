@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S NODE_OPTIONS="--napi-modules" node
 
 // process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 const CGI_ENV = {
@@ -614,6 +614,7 @@ const VM = require('vm');
 const Prince = require('prince');
 const pdftk = require('node-pdftk');
 const util = require('util');
+const BUFF_MAX_LEN = require('buffer').constants.MAX_LENGTH;
 const {
   createWriteStream,
   createReadStream,
@@ -653,7 +654,8 @@ if (module.parent != null) {
   const {
     execFile,
     spawn,
-    exec
+    exec,
+    execSync
   } = require('child_process');
 
   cgiNodeContext = new CgiHttpContext();
@@ -662,7 +664,7 @@ if (module.parent != null) {
   // log.write("CGI_ENV=> " + JSON.stringify(process.env, null, 4) + "\r\n");
 
   // Create a callback function that will get called when everything is loaded and ready to go. This will execute the script.
-  const onReady = async function () {
+  const onReady = function () {
     cgiNodeContext.request.parsePost();
     // cgiNodeContext.include(process.env.PATH_TRANSLATED);
     if (process.env.PATH_TRANSLATED.indexOf(".ejs") != -1) {
@@ -706,7 +708,7 @@ if (module.parent != null) {
       // log.write("\nip=>" + cgiNodeContext.request.ip + ", url=> " + cgiNodeContext.request.url.path);
       // log.write("\nreqBody=> " + cgiNodeContext.request.rawBody);
 
-      let cgiexec = `node -p "require('${path.resolve(process.env.PATH_TRANSLATED)}').getResponse();"`;
+      let cgiexec = `NODE_OPTIONS="--napi-modules" node -p "require('${path.resolve(process.env.PATH_TRANSLATED)}').getResponse();"`;
       let exclude = [
         '/cgi-bin/ipset.node',
         '/cgi-bin/upload.node',
@@ -717,117 +719,128 @@ if (module.parent != null) {
       if (exclude.includes(cgiNodeContext.request.url.pathname)) {
         cgiexec = process.env.PATH_TRANSLATED;
       }
-      const {
+      /*const {
         stdin,
         stdout,
         stderr
-      } = await exec(cgiexec);
-      /*if(cgiNodeContext.request.url.pathname.indexOf("ppreprun.node") != -1)
-      {
-      //process.stdin.pipe(stdin);
-      log.write("\nresData=> ");
-      stdout.pipe(log);
-      stdout.pipe(process.stdout);
-      stdin.cork();
-      //stdin.write(Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
-      stdin.write(Buffer(cgiNodeContext.request.rawBody));
-      stdin.uncork();
-      }
-      else 
-      {*/
-      let responseData = '';
-      stdout.on('data', (chunk) => {
-        responseData += chunk;
+      } = await exec(cgiexec);*/
+      //process.stdin.pipe(cgiNodeContext.request.rawBody);
+      let result = execSync(cgiexec, {
+        maxBuffer: BUFF_MAX_LEN,
+        input: Buffer.from(cgiNodeContext.request.rawBody)
       });
-      stdout.on('end', () => {
-        let resData = responseData.split("\r\n\r\n");
-        let contentType = resData.shift();
-        // log.write("\nresponseData=> " + responseData);
-        if (contentType) {
-          let headerName = (contentType?.split(":")[0] || "").toLocaleLowerCase().trim();
-          let headerValue = (contentType?.split(":")[1] || "").toLocaleLowerCase().trim();
-          // log.write("\nresData=> " + resData.length)
-          resData = resData[0];
+      // , (error, stdout, stderr) => {
+      //   /*if(cgiNodeContext.request.url.pathname.indexOf("ppreprun.node") != -1)
+      //   {
+      //   //process.stdin.pipe(stdin);
+      //   log.write("\nresData=> ");
+      //   stdout.pipe(log);
+      //   stdout.pipe(process.stdout);
+      //   stdin.cork();
+      //   //stdin.write(Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
+      //   stdin.write(Buffer(cgiNodeContext.request.rawBody));
+      //   stdin.uncork();
+      //   }
+      //   else 
+      //   {*/
+      //   let responseData = '';
+      //   stdout.on('data', (chunk) => {
+      //     responseData += chunk;
+      //   });
+      //   stdout.on('end', () => {
+          let resData = result.toString().split("\r\n\r\n");
+          let contentType = resData.shift();
+          // log.write("\nresponseData=> " + responseData);
+          if (contentType) {
+            let headerName = (contentType?.split(":")[0] || "").toLocaleLowerCase().trim();
+            let headerValue = (contentType?.split(":")[1] || "").toLocaleLowerCase().trim();
+            // log.write("\nresData=> " + resData.length)
+            resData = resData[0];
 
-          if (headerName == "content-type") {
-            cgiNodeContext.response.set({
-              "Content-Type": headerValue
-            });
-          }
-          if (resData != "") {
-            // resData = Buffer.from(resData.trim(), 'ascii').toString('ascii');
-            if (process.env.PATH_TRANSLATED.indexOf("resetPwd.node") != -1 || (process.env.PATH_TRANSLATED.indexOf("process.node") != -1 && body.rel == 'cusr')) {
+            if (headerName == "content-type") {
+              cgiNodeContext.response.set({
+                "Content-Type": headerValue
+              });
+            }
+            if (resData != "") {
+              // resData = Buffer.from(resData.trim(), 'ascii').toString('ascii');
+              if (process.env.PATH_TRANSLATED.indexOf("resetPwd.node") != -1 || (process.env.PATH_TRANSLATED.indexOf("process.node") != -1 && body.rel == 'cusr')) {
                 let res = resData.indexOf("\t") != -1 ? resData.split("\t")[1].trim() : JSON.parse(resData).pdfName;
                 // res = res.trim();
-                if(res == ""){}else{
+                if (res == "") {} else {
                   let html_name = "/var/prism/www/report/rep_html/" + res + ".html";
                   let pdf_sample = "/var/prism/www/report/rep_html/" + res + ".pdf";
                   let pdf_file = "/var/prism/www/editor/usrpwdPdf/" + res + ".pdf";
-                  
+
                   Prince()
-                      .inputs(html_name)
-                      .output(pdf_sample)
-                      .execute()
-                      .then(() => {
-                          // response.write("OK: done");
-                          // log.write(pdf_sample + ' Created...\n');
-                          pdftk
-                              .input(pdf_sample)
-                              .cat("2-end")
-                              .output(pdf_file)
-                              .then(async (buffer) => {
-                                  // response.write("concatenated successfully.");
-                                  await unlink(pdf_sample);
-                                  // await createReadStream(html_name).pipe(createWriteStream(BACKUP_FILE));
-                                  await unlink(html_name);
-                                  // log.write(pdf_file + ' Created...\n');
-                                  // await response.write('Created');
-                              }).catch(err => {
-                                  // response.write("ERROR: "+ util.inspect(err));
-                                  // log.write("ERROR: " + util.inspect(err));
-                              });
-                      }).catch(error => {
-                          // response.write("ERROR: "+ util.inspect(error));
-                          // log.write("ERROR: " + util.inspect(error));
-                      });
+                    .inputs(html_name)
+                    .output(pdf_sample)
+                    .execute()
+                    .then(() => {
+                      // response.write("OK: done");
+                      // log.write(pdf_sample + ' Created...\n');
+                      pdftk
+                        .input(pdf_sample)
+                        .cat("2-end")
+                        .output(pdf_file)
+                        .then(async (buffer) => {
+                          // response.write("concatenated successfully.");
+                          await unlink(pdf_sample);
+                          // await createReadStream(html_name).pipe(createWriteStream(BACKUP_FILE));
+                          await unlink(html_name);
+                          // log.write(pdf_file + ' Created...\n');
+                          // await response.write('Created');
+                        }).catch(err => {
+                          // response.write("ERROR: "+ util.inspect(err));
+                          // log.write("ERROR: " + util.inspect(err));
+                        });
+                    }).catch(error => {
+                      // response.write("ERROR: "+ util.inspect(error));
+                      // log.write("ERROR: " + util.inspect(error));
+                    });
                 }
+
+              }
+
+              // resData = resData.trim();
+              // log.write("\nresData=> " + resData);
+              // if(headerValue.indexOf('json')!=-1) cgiNodeContext.response.json(JSON.parse(resData));
+              // else{
+              resData = Buffer.from(resData.trim());
+              cgiNodeContext.response.write(resData);
+              // cgiNodeContext.response.end();
+              // }
+            } else {
+              cgiNodeContext.response.write("404\t\tUnabletoprocess");
+              // cgiNodeContext.response.end();
             }
-
-            // resData = resData.trim();
-            // log.write("\nresData=> " + resData);
-            // if(headerValue.indexOf('json')!=-1) cgiNodeContext.response.json(JSON.parse(resData));
-            // else{
-            resData = Buffer.from(resData.trim());
-            cgiNodeContext.response.write(resData);
-            // cgiNodeContext.response.end();
-            // }
-          } else {
-            cgiNodeContext.response.write("404\t\tUnabletoprocess");
-            // cgiNodeContext.response.end();
           }
-        }
-      });
-      let errData = '';
-      stderr.on('data', (chunk) => {
-        errData += chunk;
-      });
-      stderr.on('end', () => {
-        // log.write('\nstderr: ' + errData);
-      });
-      // stdin.setDefaultEncoding('utf-8');
-      //log.write("\nrawBody=>"+Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
-      // if(cgiNodeContext.request.url.pathname.indexOf("ppreprun.node") != -1) stdin.write(Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
-      // if(cgiNodeContext.request.url.pathname.indexOf("ppreprun.node") != -1) stdin.write(Buffer.from(cgiNodeContext.request.rawBody, 'ascii').toString('ascii'));
-      // else 
-      stdin.write(Buffer.from(cgiNodeContext.request.rawBody, 'binary').toString('binary'));
-      stdin.end();
-      //}
-      // cgiNodeContext.response.pipe(stdout.pipe);
-      // cgiNodeContext.response.write(require(process.env.PATH_TRANSLATED).getResponse());
+      //   });
+      //   let errData = '';
+      //   stderr.on('data', (chunk) => {
+      //     errData += chunk;
+      //   });
+      //   stderr.on('end', () => {
+      //     // log.write('\nstderr: ' + errData);
+      //   });
+      //   // stdin.setDefaultEncoding('utf-8');
+      //   //log.write("\nrawBody=>"+Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
+      //   // if(cgiNodeContext.request.url.pathname.indexOf("ppreprun.node") != -1) stdin.write(Queryparser.stringify(Queryparser.parse(cgiNodeContext.request.rawBody)));
+      //   // if(cgiNodeContext.request.url.pathname.indexOf("ppreprun.node") != -1) stdin.write(Buffer.from(cgiNodeContext.request.rawBody, 'ascii').toString('ascii'));
+      //   // else 
+      //   // stdin.write(Buffer.from(cgiNodeContext.request.rawBody, 'binary').toString('binary'));
+      //   // stdin.end();
+      //   //}
+      //   // cgiNodeContext.response.pipe(stdout.pipe);
+      //   // cgiNodeContext.response.write(require(process.env.PATH_TRANSLATED).getResponse());
 
-      // cgiNodeContext.response.write(cgiNodeContext.require(process.env.PATH_TRANSLATED).getResponse());
-      // cgiNodeContext.response.end();
+      //   // cgiNodeContext.response.write(cgiNodeContext.require(process.env.PATH_TRANSLATED).getResponse());
+      //   // cgiNodeContext.response.end();
+
+      // });
+      
     }
+
   };
 
 
