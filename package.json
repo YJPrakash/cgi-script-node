@@ -16,5 +16,16 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "version": "1.0.7"
+  "version": "1.0.7",
+  "publishConfig": {
+    "registry": "http://npm.prismportfolio.com"
+  },
+  "publisher": "prism",
+  "maintainers": [{
+    "name": "Prism",
+    "email": "Gitlab.Admin@PrismPortfolio.com"
+  }, {
+    "name": "Jeyaprakash",
+    "email": "Jeyaprakash.Yacobu@PrismPortfolio.com"
+  }]
 }
